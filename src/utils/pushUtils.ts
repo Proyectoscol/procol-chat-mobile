@@ -26,9 +26,11 @@ export const findConversationLinkFromPush = ({
   notification,
   installationUrl,
 }: {
-  notification: Notification;
+  notification: Notification | null | undefined;
   installationUrl: string;
 }) => {
+  if (!notification) return;
+
   const { notificationType } = notification;
 
   if (NOTIFICATION_TYPES.includes(notificationType)) {
@@ -55,15 +57,18 @@ interface FCMMessage {
 }
 
 export const findNotificationFromFCM = ({ message }: { message: FCMMessage }) => {
-  let notification = null;
-  // FCM HTTP v1
-  if (message?.data?.payload) {
-    const parsedPayload = JSON.parse(message.data.payload);
-    notification = parsedPayload.data.notification;
+  try {
+    // FCM HTTP v1
+    if (message?.data?.payload) {
+      const parsedPayload = JSON.parse(message.data.payload);
+      return parsedPayload?.data?.notification ?? null;
+    }
+    // FCM legacy (deprecated)
+    if (message?.data?.notification) {
+      return JSON.parse(message.data.notification);
+    }
+  } catch {
+    // malformed payload - return null so callers can skip navigation safely
   }
-  // FCM legacy. It will be deprecated soon
-  else {
-    notification = JSON.parse(message.data.notification);
-  }
-  return notification;
+  return null;
 };
