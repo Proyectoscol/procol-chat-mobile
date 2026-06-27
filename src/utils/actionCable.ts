@@ -168,8 +168,21 @@ class ActionCableConnector extends BaseActionCableConnector {
   };
 }
 
+let connectorInstance: ActionCableConnector | null = null;
+
 export default {
   init({ pubSubToken, webSocketUrl, accountId, userId }: ActionCableConfig) {
-    return new ActionCableConnector(pubSubToken, webSocketUrl, accountId, userId);
+    if (connectorInstance) {
+      connectorInstance.disconnect();
+    }
+    connectorInstance = new ActionCableConnector(pubSubToken, webSocketUrl, accountId, userId);
+    return connectorInstance;
+  },
+  reconnectIfNeeded() {
+    connectorInstance?.reconnectIfNeeded();
+  },
+  disconnect() {
+    connectorInstance?.disconnect();
+    connectorInstance = null;
   },
 };
