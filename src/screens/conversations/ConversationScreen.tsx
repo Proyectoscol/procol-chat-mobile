@@ -63,6 +63,7 @@ import i18n from '@/i18n';
 import ActionBottomSheet from '@/navigation/tabs/ActionBottomSheet';
 import { getCurrentRouteName } from '@/utils/navigationUtils';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import actionCableConnector from '@/utils/actionCable';
 
 // The screen list thats need to be checked for refreshing the conversations list
 const REFRESH_SCREEN_LIST = [SCREENS.CONVERSATION, SCREENS.INBOX, SCREENS.SETTINGS];
@@ -176,6 +177,7 @@ const ConversationList = () => {
         const routeName = getCurrentRouteName();
         if (routeName && REFRESH_SCREEN_LIST.includes(routeName)) {
           checkAppStateAndFetchConversations();
+          actionCableConnector.reconnectIfNeeded();
         }
       }
 
