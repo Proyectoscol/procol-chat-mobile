@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, RefreshControl, StatusBar } from 'react-native';
 import Animated, {
   LinearTransition,
@@ -53,8 +53,6 @@ const InboxList = () => {
   const sortOrder = useAppSelector(selectSortOrder);
 
   const notifications = useAppSelector(state => getFilteredNotifications(state, sortOrder));
-
-  const previousSortOrder = useRef(sortOrder);
 
   const dispatch = useAppDispatch();
 
