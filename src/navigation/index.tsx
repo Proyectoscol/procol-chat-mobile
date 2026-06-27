@@ -1,6 +1,11 @@
 import React, { useCallback, useRef } from 'react';
 import { ActivityIndicator, Linking, StyleSheet, View } from 'react-native';
-import messaging from '@react-native-firebase/messaging';
+import {
+  getMessaging,
+  setBackgroundMessageHandler,
+  getInitialNotification,
+  onNotificationOpenedApp,
+} from '@react-native-firebase/messaging';
 import { getStateFromPath } from '@react-navigation/native';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 import { useFonts } from 'expo-font';
@@ -28,9 +33,13 @@ import Inter50024 from '@/assets/fonts/Inter-500-24.ttf';
 import Inter58024 from '@/assets/fonts/Inter-580-24.ttf';
 import Inter60020 from '@/assets/fonts/Inter-600-20.ttf';
 
-messaging().setBackgroundMessageHandler(async remoteMessage => {
-  console.log('Message handled in the background!', remoteMessage);
-});
+try {
+  setBackgroundMessageHandler(getMessaging(), async remoteMessage => {
+    console.log('Message handled in the background!', remoteMessage);
+  });
+} catch (_e) {
+  // Firebase not available (e.g. missing google-services.json in dev)
+}
 
 export const AppNavigationContainer = () => {
   const [fontsLoaded] = useFonts({
@@ -121,17 +130,21 @@ export const AppNavigationContainer = () => {
       }
 
       // getInitialNotification: When the application is opened from a quit state.
-      const message = await messaging().getInitialNotification();
-      if (message) {
-        const notification = findNotificationFromFCM({ message });
-        const camelCaseNotification = transformNotification(notification);
-        const conversationLink = findConversationLinkFromPush({
-          notification: camelCaseNotification,
-          installationUrl,
-        });
-        if (conversationLink) {
-          return conversationLink;
+      try {
+        const message = await getInitialNotification(getMessaging());
+        if (message) {
+          const notification = findNotificationFromFCM({ message });
+          const camelCaseNotification = transformNotification(notification);
+          const conversationLink = findConversationLinkFromPush({
+            notification: camelCaseNotification,
+            installationUrl,
+          });
+          if (conversationLink) {
+            return conversationLink;
+          }
         }
+      } catch (_e) {
+        // Firebase not available
       }
       return undefined;
     },
@@ -152,20 +165,25 @@ export const AppNavigationContainer = () => {
       const subscription = Linking.addEventListener('url', onReceiveURL);
 
       //onNotificationOpenedApp: When the application is running, but in the background.
-      const unsubscribeNotification = messaging().onNotificationOpenedApp(message => {
-        if (message) {
-          const notification = findNotificationFromFCM({ message });
-          const camelCaseNotification = transformNotification(notification);
+      let unsubscribeNotification: () => void = () => {};
+      try {
+        unsubscribeNotification = onNotificationOpenedApp(getMessaging(), message => {
+          if (message) {
+            const notification = findNotificationFromFCM({ message });
+            const camelCaseNotification = transformNotification(notification);
 
-          const conversationLink = findConversationLinkFromPush({
-            notification: camelCaseNotification,
-            installationUrl,
-          });
-          if (conversationLink) {
-            listener(conversationLink);
+            const conversationLink = findConversationLinkFromPush({
+              notification: camelCaseNotification,
+              installationUrl,
+            });
+            if (conversationLink) {
+              listener(conversationLink);
+            }
           }
-        }
-      });
+        });
+      } catch (_e) {
+        // Firebase not available
+      }
 
       return () => {
         subscription.remove();
