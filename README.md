@@ -56,6 +56,34 @@ You can leave the Beta testing program at any time:
 - On Android, [click this link](https://play.google.com/apps/testing/com.chatwoot.app) while logged in with your Google Play email address used to opt-in for the Beta program, then click **Leave the program**.
 - On iOS, access the `Chatwoot` app page in TestFlight and click **Stop Testing**.
 
+## Development Setup
+
+### Prerequisites
+
+- **Node.js** >= 18
+- **pnpm** >= 10 (see `packageManager` in `package.json`)
+- **Java 17** (required for Android builds - Java 21+ breaks the Gradle build)
+  - macOS: `brew install openjdk@17` then set `JAVA_HOME` to the JDK 17 path
+  - Verify: `java -version` must report `openjdk 17.x.x`
+
+### Building a local release APK (Android sideloading / device testing)
+
+```bash
+# First generate native Android project if not present
+pnpm generate
+
+# Then build release APK with Gradle (requires Java 17 in PATH)
+cd android && ./gradlew assembleRelease
+# Output: android/app/build/outputs/apk/release/app-release.apk
+```
+
+For cloud builds via EAS:
+
+```bash
+pnpm build:android        # cloud EAS build (requires EAS account)
+pnpm build:android:local  # local EAS build (produces .aab - for Play Store)
+```
+
 ## Feedback & Contributing
 
 Feel free to send us feedback on [X](https://x.com/chatwootapp) or [file an issue](https://github.com/chatwoot/chatwoot-mobile-app/issues).
