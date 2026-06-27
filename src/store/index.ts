@@ -25,6 +25,10 @@ const persistConfig = {
   key: 'Root',
   version: CURRENT_VERSION,
   storage: AsyncStorage,
+  // Only persist auth tokens and user preferences. Everything else (conversations,
+  // contacts, labels, inboxes…) is fetched fresh from the API on each session, so
+  // persisting it only slows down startup by reading/writing a large AsyncStorage blob.
+  whitelist: ['auth', 'settings'],
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   migrate: async (state: any) => {
     // If the stored version is older or doesn't exist, return initial state
