@@ -69,6 +69,19 @@ const REFRESH_SCREEN_LIST = [SCREENS.CONVERSATION, SCREENS.INBOX, SCREENS.SETTIN
 
 const AnimatedFlashList = Animated.createAnimatedComponent(FlashList);
 
+const ListFooterComponent = ({ isAllConversationsFetched }: { isAllConversationsFetched: boolean }) => {
+  if (isAllConversationsFetched) return null;
+  return (
+    <Animated.View
+      style={tailwind.style(
+        'flex-1 items-center justify-center pt-8',
+        `pb-[${TAB_BAR_HEIGHT}px]`,
+      )}>
+      <ActivityIndicator size="small" />
+    </Animated.View>
+  );
+};
+
 type FlashListRenderItemType = {
   item: Conversation;
   index: number;
@@ -136,19 +149,6 @@ const ConversationList = () => {
     fetchConversations(filters);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const ListFooterComponent = () => {
-    if (isAllConversationsFetched) return null;
-    return (
-      <Animated.View
-        style={tailwind.style(
-          'flex-1 items-center justify-center pt-8',
-          `pb-[${TAB_BAR_HEIGHT}px]`,
-        )}>
-        {isAllConversationsFetched ? null : <ActivityIndicator size="small" />}
-      </Animated.View>
-    );
-  };
 
   const handleRefresh = useCallback(() => {
     setFlashListReady(false);
@@ -235,6 +235,11 @@ const ConversationList = () => {
     getFilteredConversations(state, filters, userId),
   );
 
+  const renderListFooter = useCallback(
+    () => <ListFooterComponent isAllConversationsFetched={isAllConversationsFetched} />,
+    [isAllConversationsFetched],
+  );
+
   const shouldShowEmptyLoader = isConversationsLoading && allConversations.length === 0;
 
   return shouldShowEmptyLoader ? (
@@ -264,7 +269,7 @@ const ConversationList = () => {
       onScroll={scrollHandler}
       onEndReached={handleOnEndReached}
       onEndReachedThreshold={0.5}
-      ListFooterComponent={ListFooterComponent}
+      ListFooterComponent={renderListFooter}
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore
       renderItem={handleRender}
