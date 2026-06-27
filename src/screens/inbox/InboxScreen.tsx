@@ -31,6 +31,19 @@ import { InboxSortTypes } from '@/store/notification/notificationTypes';
 
 const AnimatedFlashlist = Animated.createAnimatedComponent(FlashList<Notification>);
 
+const InboxListFooter = ({ isAllNotificationsFetched }: { isAllNotificationsFetched: boolean }) => {
+  if (isAllNotificationsFetched) return null;
+  return (
+    <Animated.View
+      style={tailwind.style(
+        'flex-1 items-center justify-center pt-8',
+        `pb-[${TAB_BAR_HEIGHT}px]`,
+      )}>
+      <ActivityIndicator size="small" />
+    </Animated.View>
+  );
+};
+
 const InboxList = () => {
   const [pageNumber, setPageNumber] = useState(1);
 
@@ -46,28 +59,6 @@ const InboxList = () => {
   const previousSortOrder = useRef(sortOrder);
 
   const dispatch = useAppDispatch();
-
-  useEffect(() => {
-    if (previousSortOrder.current !== sortOrder) {
-      previousSortOrder.current = sortOrder;
-      clearAndFetchNotifications(sortOrder);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sortOrder]);
-
-  // eslint-disable-next-line react/display-name
-  const ListFooterComponent = React.memo(() => {
-    if (isAllNotificationsFetched) return null;
-    return (
-      <Animated.View
-        style={tailwind.style(
-          'flex-1 items-center justify-center pt-8',
-          `pb-[${TAB_BAR_HEIGHT}px]`,
-        )}>
-        {isAllNotificationsFetched ? null : <ActivityIndicator size="small" />}
-      </Animated.View>
-    );
-  });
 
   useEffect(() => {
     clearAndFetchNotifications(sortOrder);
@@ -113,15 +104,23 @@ const InboxList = () => {
 
   const { openedRowIndex } = useInboxListStateContext();
 
-  const handleRender: ListRenderItem<Notification> = ({ item, index }) => {
-    return (
-      <InboxItemContainer
-        item={item}
-        index={index}
-        openedRowIndex={openedRowIndex as SharedValue<number | null>}
-      />
-    );
-  };
+  const handleRender: ListRenderItem<Notification> = useCallback(
+    ({ item, index }) => {
+      return (
+        <InboxItemContainer
+          item={item}
+          index={index}
+          openedRowIndex={openedRowIndex as SharedValue<number | null>}
+        />
+      );
+    },
+    [openedRowIndex],
+  );
+
+  const renderListFooter = useCallback(
+    () => <InboxListFooter isAllNotificationsFetched={isAllNotificationsFetched} />,
+    [isAllNotificationsFetched],
+  );
 
   const scrollHandler = useAnimatedScrollHandler({
     onBeginDrag: () => {
@@ -161,7 +160,7 @@ const InboxList = () => {
       onScroll={scrollHandler}
       onEndReached={handleOnEndReached}
       onEndReachedThreshold={0.5}
-      ListFooterComponent={ListFooterComponent}
+      ListFooterComponent={renderListFooter}
       renderItem={handleRender}
       contentContainerStyle={tailwind.style(`pb-[${TAB_BAR_HEIGHT - 1}px]`)}
     />
