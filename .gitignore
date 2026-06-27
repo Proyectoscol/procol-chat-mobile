@@ -35,7 +35,14 @@ yarn-error.*
 *.tsbuildinfo
 
 ios/
-android/
+
+# Android: ignore build artifacts but track source files and native module code
+android/app/build/
+android/build/
+android/.gradle/
+android/app/.cxx/
+android/app/libs/*.aar
+android/app/libs/*.jar
 
 google-services.json
 GoogleService-Info.plist
