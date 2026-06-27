@@ -21,6 +21,13 @@ export type FlashListRenderProps = {
 
 const AnimatedFlashlist = Animated.createAnimatedComponent(FlashList<Message | { date: string }>);
 
+const keyExtractor = (item: { date: string } | Message): string => {
+  if ('date' in item) {
+    return item.date.toString();
+  }
+  return item.id.toString();
+};
+
 type DateSectionProps = { item: { date: string } };
 
 const DateSection = ({ item }: DateSectionProps) => {
@@ -126,12 +133,7 @@ export const MessagesList = ({
         data={messages}
         contentContainerStyle={tailwind.style('px-3')}
         keyboardShouldPersistTaps="handled"
-        keyExtractor={(item: { date: string } | Message) => {
-          if ('date' in item) {
-            return item.date.toString();
-          }
-          return item.id.toString();
-        }}
+        keyExtractor={keyExtractor}
       />
     </Animated.View>
   );
