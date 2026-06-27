@@ -70,8 +70,8 @@ export const AppNavigationContainer = () => {
         },
       },
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     // getStateFromPath: App running, receives deep link - handles SSO callbacks and conversation navigation
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     getStateFromPath: (path: string, config: any) => {
       // Handle SSO callback - App running, receives deep link
       if (path.includes(SSO_CALLBACK_URL) || path.includes('auth/saml')) {
@@ -214,8 +214,7 @@ export const AppNavigationContainer = () => {
       onStateChange={async () => {
         routeNameRef.current = navigationRef.current?.getCurrentRoute()?.name;
       }}
-      fallback={<ActivityIndicator animating />}
-    >
+      fallback={<ActivityIndicator animating />}>
       <BottomSheetModalProvider>
         <View style={styles.navigationLayout} onLayout={onLayoutRootView}>
           <AppTabs />

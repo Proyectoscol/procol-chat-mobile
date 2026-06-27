@@ -82,7 +82,7 @@ class BaseActionCableConnector {
     this.presenceTimer = setInterval(() => {
       try {
         this.cable.channel(channelName).perform('update_presence');
-      } catch (_e) {
+      } catch {
         // channel may not be ready yet
       }
     }, PRESENCE_INTERVAL);
@@ -98,14 +98,21 @@ class BaseActionCableConnector {
   private scheduleReconnect(delayOverride?: number): void {
     if (this.disposed) return;
     if (this.reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-      console.error('[ActionCable] reconexion fallida despues de', MAX_RECONNECT_ATTEMPTS, 'intentos');
+      console.error(
+        '[ActionCable] reconexion fallida despues de',
+        MAX_RECONNECT_ATTEMPTS,
+        'intentos',
+      );
       return;
     }
     if (this.reconnectTimer !== null) return;
 
     const delay =
       delayOverride ??
-      Math.min(BASE_RECONNECT_DELAY_MS * Math.pow(2, this.reconnectAttempts), MAX_RECONNECT_DELAY_MS);
+      Math.min(
+        BASE_RECONNECT_DELAY_MS * Math.pow(2, this.reconnectAttempts),
+        MAX_RECONNECT_DELAY_MS,
+      );
 
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null;
@@ -141,7 +148,7 @@ class BaseActionCableConnector {
     }
     try {
       this.cable.channel(channelName).unsubscribe();
-    } catch (_e) {
+    } catch {
       // ignore - channel may already be gone
     }
   }
