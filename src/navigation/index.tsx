@@ -37,7 +37,7 @@ try {
   setBackgroundMessageHandler(getMessaging(), async remoteMessage => {
     console.log('Message handled in the background!', remoteMessage);
   });
-} catch (_e) {
+} catch {
   // Firebase not available (e.g. missing google-services.json in dev)
 }
 
@@ -143,7 +143,7 @@ export const AppNavigationContainer = () => {
             return conversationLink;
           }
         }
-      } catch (_e) {
+      } catch {
         // Firebase not available
       }
       return undefined;
@@ -181,7 +181,7 @@ export const AppNavigationContainer = () => {
             }
           }
         });
-      } catch (_e) {
+      } catch {
         // Firebase not available
       }
 
@@ -214,7 +214,8 @@ export const AppNavigationContainer = () => {
       onStateChange={async () => {
         routeNameRef.current = navigationRef.current?.getCurrentRoute()?.name;
       }}
-      fallback={<ActivityIndicator animating />}>
+      fallback={<ActivityIndicator animating />}
+    >
       <BottomSheetModalProvider>
         <View style={styles.navigationLayout} onLayout={onLayoutRootView}>
           <AppTabs />

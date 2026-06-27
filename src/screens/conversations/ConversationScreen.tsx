@@ -70,14 +70,16 @@ const REFRESH_SCREEN_LIST = [SCREENS.CONVERSATION, SCREENS.INBOX, SCREENS.SETTIN
 
 const AnimatedFlashList = Animated.createAnimatedComponent(FlashList);
 
-const ListFooterComponent = ({ isAllConversationsFetched }: { isAllConversationsFetched: boolean }) => {
+const ListFooterComponent = ({
+  isAllConversationsFetched,
+}: {
+  isAllConversationsFetched: boolean;
+}) => {
   if (isAllConversationsFetched) return null;
   return (
     <Animated.View
-      style={tailwind.style(
-        'flex-1 items-center justify-center pt-8',
-        `pb-[${TAB_BAR_HEIGHT}px]`,
-      )}>
+      style={tailwind.style('flex-1 items-center justify-center pt-8', `pb-[${TAB_BAR_HEIGHT}px]`)}
+    >
       <ActivityIndicator size="small" />
     </Animated.View>
   );
@@ -246,7 +248,8 @@ const ConversationList = () => {
 
   return shouldShowEmptyLoader ? (
     <Animated.View
-      style={tailwind.style('flex-1 items-center justify-center', `pb-[${TAB_BAR_HEIGHT}px]`)}>
+      style={tailwind.style('flex-1 items-center justify-center', `pb-[${TAB_BAR_HEIGHT}px]`)}
+    >
       <ActivityIndicator />
     </Animated.View>
   ) : allConversations.length === 0 ? (
@@ -255,7 +258,8 @@ const ConversationList = () => {
       contentContainerStyle={tailwind.style(
         'flex-1 items-center justify-center',
         `pb-[${TAB_BAR_HEIGHT}px]`,
-      )}>
+      )}
+    >
       <EmptyStateIcon />
       <Animated.Text style={tailwind.style('pt-6 text-md  tracking-[0.32px] text-gray-800')}>
         {i18n.t('CONVERSATION.EMPTY')}
@@ -337,7 +341,8 @@ const ConversationScreen = () => {
           animationConfigs={animationConfigs}
           enablePanDownToClose
           snapPoints={filterSnapPoints}
-          onDismiss={handleOnDismiss}>
+          onDismiss={handleOnDismiss}
+        >
           <BottomSheetWrapper>
             {currentBottomSheet === 'status' ? <StatusFilters /> : null}
             {currentBottomSheet === 'sort_by' ? <SortByFilters /> : null}
