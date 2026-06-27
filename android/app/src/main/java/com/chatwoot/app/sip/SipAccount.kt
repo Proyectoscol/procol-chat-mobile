@@ -19,7 +19,7 @@ class SipAccount(
             Log.e(TAG, "onRegState: failed to get account info", e)
             return
         }
-        val status = prm.code.swigValue()
+        val status = prm.code
         Log.d(TAG, "onRegState: status=$status active=${info.regIsActive}")
 
         when {
@@ -32,7 +32,7 @@ class SipAccount(
     override fun onIncomingCall(prm: OnIncomingCallParam) {
         Log.i(TAG, "Incoming call: callId=${prm.callId}")
         try {
-            val call = SipCall(this, prm.callId.toInt(), engine)
+            val call = SipCall(this, prm.callId, engine)
             val info = call.info
             val remoteUri = info.remoteUri
             val callerName = extractDisplayName(remoteUri)

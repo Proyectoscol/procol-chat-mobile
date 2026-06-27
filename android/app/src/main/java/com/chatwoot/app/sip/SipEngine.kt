@@ -72,38 +72,37 @@ class SipEngine(
         try {
             endpoint.libCreate()
 
-            val epConfig = EpConfig().apply {
-                // ICE: mandatory for WebRTC interop with Asterisk
-                medConfig.iceConfig.enable = pj_constants_.PJ_TRUE
+            val epConfig = EpConfig()
 
-                // STUN server from ice_servers[0] (STUN entry)
-                val stunUrl = creds.iceServers
-                    .flatMap { it.urls }
-                    .firstOrNull { it.startsWith("stun:") }
-                if (stunUrl != null) {
-                    val stunHost = stunUrl.removePrefix("stun:")
-                    medConfig.stunServer.add(stunHost)
-                }
-
-                // Log level: in release builds reduce noise; in debug keep verbose
-                logConfig.level = if (android.util.Log.isLoggable(TAG, android.util.Log.DEBUG)) 5 else 2
-                logConfig.consoleLevel = logConfig.level
+            // STUN server from ice_servers[0] (STUN entry) - configured at UA level
+            val stunUrl = creds.iceServers
+                .flatMap { it.urls }
+                .firstOrNull { it.startsWith("stun:") }
+            if (stunUrl != null) {
+                val stunHost = stunUrl.removePrefix("stun:")
+                val sv = StringVector()
+                sv.add(stunHost)
+                epConfig.uaConfig.setStunServer(sv)
+                Log.i(TAG, "STUN: $stunHost")
             }
+
+            // Log level
+            epConfig.logConfig.level = if (android.util.Log.isLoggable(TAG, android.util.Log.DEBUG)) 5 else 2
+            epConfig.logConfig.consoleLevel = epConfig.logConfig.level
+
             endpoint.libInit(epConfig)
 
-            // WSS transport for connecting to Asterisk wss://<host>:8089/ws
-            val tCfg = TransportConfig().apply {
-                // Port 0 = let the OS choose an ephemeral local port
-                port = 0
-            }
+            // TLS transport - Asterisk WebSocket (wss://host:8089/ws) uses TLS+WebSocket.
+            // PJSIP routes via WebSocket when the proxy URI contains ;transport=wss.
+            val tCfg = TransportConfig()
+            tCfg.port = 0
             try {
-                endpoint.transportCreate(pjsip_transport_type_e.PJSIP_TRANSPORT_WSS, tCfg)
-                Log.i(TAG, "WSS transport created")
-            } catch (e: Exception) {
-                // Fallback: TLS transport. The outbound proxy ;transport=wss param may still
-                // trigger WebSocket upgrade on some PJSIP builds.
-                Log.w(TAG, "WSS transport unavailable, falling back to TLS: ${e.message}")
                 endpoint.transportCreate(pjsip_transport_type_e.PJSIP_TRANSPORT_TLS, tCfg)
+                Log.i(TAG, "TLS transport created (WSS uses TLS+WebSocket via proxy URI)")
+            } catch (e: Exception) {
+                // Fallback to TCP for non-TLS test environments
+                Log.w(TAG, "TLS transport unavailable, using TCP: ${e.message}")
+                endpoint.transportCreate(pjsip_transport_type_e.PJSIP_TRANSPORT_TCP, tCfg)
             }
 
             endpoint.libStart()
@@ -202,8 +201,8 @@ class SipEngine(
         val call = activeCall ?: return
         try {
             val info = call.info
-            for (i in 0 until info.media.size().toInt()) {
-                val media = info.media[i.toLong()]
+            for (i in 0 until info.media.size) {
+                val media = info.media[i]
                 if (media.type == pjmedia_type.PJMEDIA_TYPE_AUDIO &&
                     media.status == pjsua_call_media_status.PJSUA_CALL_MEDIA_ACTIVE
                 ) {
@@ -291,33 +290,40 @@ class SipEngine(
 
             // Disable session timers - FreePBX sends unwanted RE-INVITEs without this.
             // Matches useJsSipSession.js: session_timers: false
-            call100relUse = pjsua_100rel_use.PJSUA_100REL_NOT_USED
-            timerUse = pjsua_sip_timer_use.PJSUA_SIP_TIMER_INACTIVE
-            timerMinSESec = 0
-            timerSessExpiresSec = 0
+            val callCfg = callConfig
+            callCfg.setPrackUse(pjsua_100rel_use.PJSUA_100REL_NOT_USED)
+            callCfg.setTimerUse(pjsua_sip_timer_use.PJSUA_SIP_TIMER_INACTIVE)
+            callCfg.setTimerMinSESec(0)
+            callCfg.setTimerSessExpiresSec(0)
+            setCallConfig(callCfg)
 
             // WebRTC media: DTLS-SRTP mandatory (matches media_encryption=dtls in pjsip.conf)
-            mediaConfig.srtpUse = pjmedia_srtp_use.PJMEDIA_SRTP_MANDATORY
+            val mediaCfg = mediaConfig
+            mediaCfg.setSrtpUse(pjmedia_srtp_use.PJMEDIA_SRTP_MANDATORY)
             // DTLS does not require SIP to be over TLS (srtpSecureSignaling=0)
-            mediaConfig.srtpSecureSignaling = 0
+            mediaCfg.setSrtpSecureSignaling(0)
+            setMediaConfig(mediaCfg)
 
-            // TURN server from ice_servers
+            // ICE + TURN: configured in AccountNatConfig
+            val natCfg = natConfig
+            natCfg.setIceEnabled(true)
             val turnEntry = creds.iceServers.firstOrNull { server ->
                 server.urls.any { it.startsWith("turn:") }
             }
             if (turnEntry != null) {
                 val turnUrl = turnEntry.urls.first { it.startsWith("turn:") }
                 val turnHost = turnUrl.removePrefix("turn:")
-                mediaConfig.turnEnabled = pj_constants_.PJ_TRUE
-                mediaConfig.turnServer = turnHost
+                natCfg.setTurnEnabled(true)
+                natCfg.setTurnServer(turnHost)
                 if (turnEntry.username != null && turnEntry.credential != null) {
-                    mediaConfig.turnUserName = turnEntry.username
-                    mediaConfig.turnPassword = turnEntry.credential
+                    natCfg.setTurnUserName(turnEntry.username)
+                    natCfg.setTurnPassword(turnEntry.credential)
                 }
                 Log.i(TAG, "TURN configured: $turnHost")
             } else {
                 Log.w(TAG, "No TURN server in ice_servers - calls on 4G/5G may fail")
             }
+            setNatConfig(natCfg)
         }
 
         val acc = SipAccount(this, creds.extension)

@@ -94,6 +94,7 @@ class SipService : Service(), SipEngine.Listener {
                 // PJSIP follows whatever AudioManager sets.
                 val enabled = intent.getBooleanExtra(EXTRA_SPEAKER_ENABLED, false)
                 val audioManager = getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
+                @Suppress("DEPRECATION")
                 audioManager.isSpeakerphoneOn = enabled
             }
             else -> Log.d(TAG, "onStartCommand: no action or unknown action: ${intent?.action}")

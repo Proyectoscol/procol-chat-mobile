@@ -38,7 +38,7 @@ class SipCall(
                 val durationSecs = if (startTimestamp > 0) {
                     ((System.currentTimeMillis() - startTimestamp) / 1000).toInt()
                 } else 0
-                val statusCode = info.lastStatusCode.swigValue()
+                val statusCode = info.lastStatusCode
                 if (statusCode in 400..699) {
                     engine.onCallFailed(callIdStr, info.lastReason)
                 } else {
@@ -54,8 +54,8 @@ class SipCall(
             Log.e(TAG, "onCallMediaState: failed to get call info", e)
             return
         }
-        for (i in 0 until info.media.size().toInt()) {
-            val media = info.media[i.toLong()]
+        for (i in 0 until info.media.size) {
+            val media = info.media[i]
             if (media.type == pjmedia_type.PJMEDIA_TYPE_AUDIO &&
                 media.status == pjsua_call_media_status.PJSUA_CALL_MEDIA_ACTIVE
             ) {

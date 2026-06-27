@@ -154,7 +154,7 @@ dependencies {
     // PJSIP - SIP/WebRTC engine
     // The pjsua2.aar must be placed in android/app/libs/ before building.
     // Run `pnpm sip:setup` to download/build it. See scripts/setup-pjsip-android.sh.
-    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar", "*.jar"))))
+    implementation fileTree(dir: "libs", include: ["*.aar", "*.jar"])
 
     // Required by PJSIP's Java binding at runtime
     implementation("androidx.core:core-ktx:1.13.1")
