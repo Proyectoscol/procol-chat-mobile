@@ -54,6 +54,6 @@ export const getFilteredNotifications = createDraftSafeSelector(
       asc: (a, b) => a.createdAt - b.createdAt,
       desc: (a, b) => b.createdAt - a.createdAt,
     };
-    return notifications.sort(comparator[sortOrder]);
+    return [...notifications].sort(comparator[sortOrder]);
   },
 );
