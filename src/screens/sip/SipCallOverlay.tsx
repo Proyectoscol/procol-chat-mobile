@@ -27,37 +27,21 @@ export function SipCallOverlay() {
   // Prevents double-tap: locks buttons from first tap until state transitions
   const [isConnecting, setIsConnecting] = useState(false);
 
-  const slideAnim = useRef(new Animated.Value(-300)).current;
+  // Fade-in so buttons are at their final position immediately (not sliding in)
+  const opacityAnim = useRef(new Animated.Value(0)).current;
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pulseLoop = useRef<Animated.CompositeAnimation | null>(null);
-  // Stays true through the slide-out animation so it completes before unmount
-  const [mounted, setMounted] = useState(false);
 
   const isVisible = state.callState === 'ringing_in' || state.callState === 'active';
 
-  // Slide in/out — keep mounted until animation finishes
+  // Fade in fast, fade out slightly slower
   useEffect(() => {
-    if (isVisible) {
-      setMounted(true);
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        useNativeDriver: true,
-        damping: 20,
-        stiffness: 220,
-        mass: 0.8,
-      }).start();
-    } else {
-      Animated.spring(slideAnim, {
-        toValue: -300,
-        useNativeDriver: true,
-        damping: 20,
-        stiffness: 220,
-        mass: 0.8,
-      }).start(({ finished }) => {
-        if (finished) setMounted(false);
-      });
-    }
-  }, [isVisible, slideAnim]);
+    Animated.timing(opacityAnim, {
+      toValue: isVisible ? 1 : 0,
+      duration: isVisible ? 120 : 200,
+      useNativeDriver: true,
+    }).start();
+  }, [isVisible, opacityAnim]);
 
   // Pulse ring animation
   useEffect(() => {
@@ -124,17 +108,13 @@ export function SipCallOverlay() {
     incomingCall?.callerName || state.callerName || state.callerId || 'Llamada entrante';
   const callerId = incomingCall?.callerId || state.callerId || '';
 
-  if (!mounted) return null;
-
   const isRinging = state.callState === 'ringing_in';
   const isActive = state.callState === 'active';
 
   return (
     <Animated.View
-      style={[
-        styles.container,
-        { top: insets.top + 8, transform: [{ translateY: slideAnim }] },
-      ]}
+      pointerEvents={isVisible ? 'auto' : 'none'}
+      style={[styles.container, { top: insets.top + 8, opacity: opacityAnim }]}
     >
       {/* Header: status */}
       <View style={styles.header}>
