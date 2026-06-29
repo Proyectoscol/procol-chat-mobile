@@ -117,9 +117,12 @@ class SipService : Service(), SipEngine.Listener {
     // ── Command handlers ─────────────────────────────────────────────────────
 
     private fun handleRegister(credentialsJson: String) {
-        // Destroy previous engine if re-registering (e.g. credential refresh)
-        engine?.stop()
-        engine = null
+        if (engine != null) {
+            // PJSIP Endpoint is a process-wide singleton; creating a second one crashes.
+            // This happens when JS hot-reloads and fires sipRegister again while already connected.
+            Log.d(TAG, "handleRegister: engine already running, ignoring duplicate register request")
+            return
+        }
 
         currentRegistrationState = "registering"
         emitState("registering")
@@ -210,6 +213,17 @@ class SipService : Service(), SipEngine.Listener {
         SipEventBus.emit(SIP_EVENTS.CALL_FAILED, Arguments.createMap().apply {
             putString("callId", callId)
             putString("reason", reason)
+        })
+    }
+
+    override fun onCallCancelled(callId: String) {
+        currentCallState = "idle"
+        currentCallerId = null
+        currentCallerName = null
+        currentActiveCallId = null
+        cancelIncomingCallNotification()
+        SipEventBus.emit(SIP_EVENTS.CALL_CANCELLED, Arguments.createMap().apply {
+            putString("callId", callId)
         })
     }
 
@@ -335,6 +349,7 @@ class SipService : Service(), SipEngine.Listener {
         const val CALL_CONNECTED = "sip.callConnected"
         const val CALL_ENDED = "sip.callEnded"
         const val CALL_FAILED = "sip.callFailed"
+        const val CALL_CANCELLED = "sip.callCancelled"
     }
 
     private fun emitState(state: String) {

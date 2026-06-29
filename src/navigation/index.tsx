@@ -1,4 +1,7 @@
 import React, { useCallback, useRef } from 'react';
+import { useSipAutoRegister } from '@/modules/sip/useSipAutoRegister';
+import { SipProvider } from '@/modules/sip/SipContext';
+import { SipCallOverlay } from '@/screens/sip/SipCallOverlay';
 import { ActivityIndicator, Linking, StyleSheet, View } from 'react-native';
 import {
   getMessaging,
@@ -52,6 +55,7 @@ export const AppNavigationContainer = () => {
 
   const routeNameRef = useRef<string | undefined>(undefined);
   const dispatch = useAppDispatch();
+  useSipAutoRegister();
 
   const installationUrl = useAppSelector(selectInstallationUrl);
   const locale = useAppSelector(selectLocale);
@@ -216,9 +220,12 @@ export const AppNavigationContainer = () => {
       }}
       fallback={<ActivityIndicator animating />}>
       <BottomSheetModalProvider>
-        <View style={styles.navigationLayout} onLayout={onLayoutRootView}>
-          <AppTabs />
-        </View>
+        <SipProvider>
+          <View style={styles.navigationLayout} onLayout={onLayoutRootView}>
+            <AppTabs />
+            <SipCallOverlay />
+          </View>
+        </SipProvider>
       </BottomSheetModalProvider>
     </NavigationContainer>
   );

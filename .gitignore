@@ -48,3 +48,11 @@ google-services.json
 GoogleService-Info.plist
 .env
 .env.local
+.gstack/
+
+# Android Kotlin build cache
+android/.kotlin/
+
+# Debug/investigation files - contain real IPs and call data
+logfromcall.txt
+fix-dtls-srtp-pjsip.md

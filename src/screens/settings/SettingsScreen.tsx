@@ -48,6 +48,7 @@ import { GenericListType } from '@/types';
 import { useHaptic } from '@/utils';
 import { SettingsHeader } from './SettingsHeader';
 import { DebugActions } from './components/DebugActions';
+import { SipStatusBadge } from '@/screens/sip/SipStatusBadge';
 import {
   selectCurrentUserAvailability,
   selectUser,
@@ -304,6 +305,9 @@ const SettingsScreen = () => {
               {email}
             </Animated.Text>
           </Animated.View>
+        </Animated.View>
+        <Animated.View style={tailwind.style('pt-4')}>
+          <SipStatusBadge />
         </Animated.View>
         <Animated.View style={tailwind.style('pt-6')}>
           <SettingsList sectionTitle={i18n.t('SETTINGS.PREFERENCES')} list={preferencesList} />

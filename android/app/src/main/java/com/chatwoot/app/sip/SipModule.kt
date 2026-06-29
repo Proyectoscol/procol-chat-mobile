@@ -50,10 +50,9 @@ class SipModule(private val reactContext: ReactApplicationContext) :
     @ReactMethod
     fun unregister(promise: Promise) {
         try {
-            val intent = Intent(reactContext, SipService::class.java).apply {
+            startService(Intent(reactContext, SipService::class.java).apply {
                 action = SipService.ACTION_UNREGISTER
-            }
-            reactContext.startService(intent)
+            })
             promise.resolve(null)
         } catch (e: Exception) {
             promise.reject("SIP_UNREGISTER_ERROR", e.message, e)

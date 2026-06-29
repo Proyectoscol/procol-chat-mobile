@@ -33,6 +33,10 @@ class SipAccount(
         Log.i(TAG, "Incoming call: callId=${prm.callId}")
         try {
             val call = SipCall(this, prm.callId, engine)
+            // Send 180 Ringing immediately. Without this PJSIP auto-declines with 480.
+            call.answer(CallOpParam().apply {
+                statusCode = pjsip_status_code.PJSIP_SC_RINGING
+            })
             val info = call.info
             val remoteUri = info.remoteUri
             val callerName = extractDisplayName(remoteUri)

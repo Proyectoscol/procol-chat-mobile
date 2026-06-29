@@ -22,12 +22,11 @@ private const val TAG = "SipEngine"
  * - If the PJSIP build was compiled without PJSIP_HAS_TLS_TRANSPORT or without WebSocket
  *   support, the transport creation will throw and SipEngine will log a clear error.
  *
- * WebRTC/DTLS notes (must match pjsip.webrtc.conf.example):
- * - media_encryption=dtls  -> PJMEDIA_SRTP_MANDATORY + DTLS fingerprint in SDP
- * - use_avpf=yes           -> PJMEDIA_SDP_NEG_FLAG_ALLOW_ASYM_PTIME (RTP/SAVPF profile)
- * - ice_support=yes        -> ICE negotiation enabled in EpConfig
- * - rtcp_mux=yes           -> handled by PJSIP media layer automatically with WebRTC build
- * - dtls_setup=actpass     -> PJSIP offers actpass by default with DTLS; Asterisk accepts
+ * Media encryption notes:
+ * - This PJSIP AAR build is compiled with OpenSSL, enabling DTLS-SRTP (PJMEDIA_SRTP_HAS_DTLS=1).
+ * - DTLS-SRTP handles UDP/TLS/RTP/SAVPF, which is what Asterisk sends with webrtc=yes.
+ * - SDES handles RTP/SAVP (Asterisk without webrtc=yes). Both keying methods are available.
+ * - The endpoint for extension 9001 uses media_encryption=dtls in pjsip.conf (Asterisk side).
  */
 class SipEngine(
     private val context: Context,
@@ -42,12 +41,14 @@ class SipEngine(
         fun onCallConnected(callId: String)
         fun onCallEnded(callId: String, reason: String, durationSeconds: Int)
         fun onCallFailed(callId: String, reason: String)
+        fun onCallCancelled(callId: String)
     }
 
     private val endpoint = Endpoint()
     private var account: SipAccount? = null
     private var activeCall: SipCall? = null
     private var credentials: SipCredentials? = null
+    private var tlsAvailable = false
 
     data class SipCredentials(
         val extension: String,
@@ -55,6 +56,10 @@ class SipEngine(
         val wssUrl: String,
         val domain: String,
         val iceServers: List<IceServerConfig>,
+        // TLS fields - used when Asterisk exposes standard SIP/TLS (port 5061).
+        // Takes precedence over wssUrl when present.
+        val tlsHost: String? = null,
+        val tlsPort: Int? = null,
     )
 
     data class IceServerConfig(
@@ -86,27 +91,53 @@ class SipEngine(
                 Log.i(TAG, "STUN: $stunHost")
             }
 
-            // Log level
-            epConfig.logConfig.level = if (android.util.Log.isLoggable(TAG, android.util.Log.DEBUG)) 5 else 2
-            epConfig.logConfig.consoleLevel = epConfig.logConfig.level
+            // Level 5 = verbose. Written to file only (pure C I/O, no JNI - safe).
+            // Do NOT use a custom LogWriter: PJSIP worker threads call utilLogWrite via
+            // SWIG/JNI and the bridge crashes (SIGSEGV, vtable corruption) in 2.14.1.
+            val logPath = context.filesDir.absolutePath + "/pjsip.log"
+            epConfig.logConfig.level = 5
+            epConfig.logConfig.consoleLevel = 0
+            epConfig.logConfig.filename = logPath
+            epConfig.logConfig.fileFlags = 0
+            Log.i(TAG, "PJSIP log -> $logPath")
+
+            // Disable software AEC - Speex AEC xruns on Android cause overcancellation
+            // of the mic signal, making TX audio sound silent on the far end.
+            // Android hardware AEC (AudioEffect) runs in the driver and is unaffected.
+            epConfig.medConfig.ecTailLen = 0
+            Log.i(TAG, "AEC disabled (ecTailLen=0) - rely on hardware AEC")
 
             endpoint.libInit(epConfig)
 
-            // TLS transport - Asterisk WebSocket (wss://host:8089/ws) uses TLS+WebSocket.
-            // PJSIP routes via WebSocket when the proxy URI contains ;transport=wss.
+            // Transport setup: prefer TLS (required for WSS to Asterisk), fallback to UDP.
+            // When TLS is unavailable (PJSIP built without OpenSSL), we use UDP on port 5060
+            // and skip the WSS proxy - Asterisk must also accept plain UDP/TCP on 5060.
             val tCfg = TransportConfig()
             tCfg.port = 0
+            // Disable SSL server cert verification - Asterisk VPS2 uses a self-signed cert.
+            // Android's trust store won't have it, so TLS handshake would fail otherwise.
+            // This is acceptable for SIP over TLS in enterprise/private deployments.
+            tCfg.tlsConfig.verifyServer = false
+            tCfg.tlsConfig.verifyClient = false
+            tCfg.tlsConfig.requireClientCert = false
             try {
                 endpoint.transportCreate(pjsip_transport_type_e.PJSIP_TRANSPORT_TLS, tCfg)
-                Log.i(TAG, "TLS transport created (WSS uses TLS+WebSocket via proxy URI)")
+                tlsAvailable = true
+                Log.i(TAG, "TLS transport created (verifyServer=false)")
             } catch (e: Exception) {
-                // Fallback to TCP for non-TLS test environments
-                Log.w(TAG, "TLS transport unavailable, using TCP: ${e.message}")
-                endpoint.transportCreate(pjsip_transport_type_e.PJSIP_TRANSPORT_TCP, tCfg)
+                Log.w(TAG, "TLS transport failed - FULL ERROR:\n${e.message}")
+                Log.w(TAG, "TLS falling back to UDP - wss proxy will be skipped")
+                try {
+                    endpoint.transportCreate(pjsip_transport_type_e.PJSIP_TRANSPORT_UDP, tCfg)
+                    Log.i(TAG, "UDP transport created")
+                } catch (e2: Exception) {
+                    endpoint.transportCreate(pjsip_transport_type_e.PJSIP_TRANSPORT_TCP, tCfg)
+                    Log.i(TAG, "TCP transport created")
+                }
             }
 
             endpoint.libStart()
-            Log.i(TAG, "PJSIP endpoint started")
+            Log.i(TAG, "PJSIP endpoint started (tlsAvailable=$tlsAvailable)")
 
             createAccount(creds)
         } catch (e: Exception) {
@@ -143,6 +174,7 @@ class SipEngine(
         try {
             val creds = credentials ?: return
             val prm = CallOpParam(true).apply {
+                statusCode = pjsip_status_code.PJSIP_SC_OK
                 opt.audioCount = 1
                 opt.videoCount = 0
             }
@@ -206,7 +238,7 @@ class SipEngine(
                 if (media.type == pjmedia_type.PJMEDIA_TYPE_AUDIO &&
                     media.status == pjsua_call_media_status.PJSUA_CALL_MEDIA_ACTIVE
                 ) {
-                    val audioMedia = call.getMedia(i.toLong()) as? AudioMedia ?: continue
+                    val audioMedia = AudioMedia.typecastFromMedia(call.getMedia(i.toLong()))
                     val devMgr = endpoint.audDevManager()
                     if (muted) {
                         devMgr.captureDevMedia.stopTransmit(audioMedia)
@@ -269,6 +301,13 @@ class SipEngine(
         listener.onCallFailed(callId, reason)
     }
 
+    internal fun onCallCancelled(callId: String) {
+        if (activeCall?.id?.toString() == callId) {
+            activeCall = null
+        }
+        listener.onCallCancelled(callId)
+    }
+
     // ── Private helpers ──────────────────────────────────────────────────────
 
     private fun createAccount(creds: SipCredentials) {
@@ -279,11 +318,22 @@ class SipEngine(
             regConfig.timeoutSec = 300
             regConfig.retryIntervalSec = 10
 
-            // Force WebSocket Secure transport via outbound proxy.
-            // The wss_url from the credential endpoint is "wss://host:8089/ws".
-            // Extract host:port from it to build the proxy URI.
-            val proxyUri = buildProxyUri(creds.wssUrl, creds.domain)
-            sipConfig.proxies.add(proxyUri)
+            // Proxy URI selection:
+            // 1. TLS (sip_tls_host:sip_tls_port) - standard SIP/TLS port 5061. Preferred.
+            //    PJSIP's TLS transport connects here directly without WebSocket upgrade.
+            // 2. WSS (wss_url) - requires WebSocket transport which PJSIP 2.14 lacks.
+            //    Kept for reference; will error with PJSIP_EUNSUPTRANSPORT if attempted.
+            if (tlsAvailable) {
+                val proxyUri = if (creds.tlsHost != null && creds.tlsPort != null) {
+                    "<sip:${creds.tlsHost}:${creds.tlsPort};transport=tls;lr>"
+                } else {
+                    buildProxyUri(creds.wssUrl, creds.domain)
+                }
+                sipConfig.proxies.add(proxyUri)
+                Log.i(TAG, "SIP proxy: $proxyUri")
+            } else {
+                Log.w(TAG, "TLS unavailable - registering direct to ${creds.domain}:5060 (no proxy)")
+            }
 
             val authCred = AuthCredInfo("digest", "*", creds.extension, 0, creds.password)
             sipConfig.authCreds.add(authCred)
@@ -292,16 +342,27 @@ class SipEngine(
             // Matches useJsSipSession.js: session_timers: false
             val callCfg = callConfig
             callCfg.setPrackUse(pjsua_100rel_use.PJSUA_100REL_NOT_USED)
+            // PJSIP_SIP_TIMER_INACTIVE stops us from initiating re-INVITEs.
+            // Do NOT set timerMinSE or timerSessExpires to 0 - PJSIP asserts min_se >= 90
+            // even when inactive, and crashes on incoming INVITE (sip_timer.c:639).
             callCfg.setTimerUse(pjsua_sip_timer_use.PJSUA_SIP_TIMER_INACTIVE)
-            callCfg.setTimerMinSESec(0)
-            callCfg.setTimerSessExpiresSec(0)
             setCallConfig(callCfg)
 
-            // WebRTC media: DTLS-SRTP mandatory (matches media_encryption=dtls in pjsip.conf)
+            // SRTP: DTLS-SRTP first, SDES as fallback.
+            // DTLS_SRTP = 1 is indexed first so pjmedia_transport_srtp_create() creates the
+            // DTLS keying before SDES. Required for Asterisk webrtc=yes (UDP/TLS/RTP/SAVPF).
             val mediaCfg = mediaConfig
             mediaCfg.setSrtpUse(pjmedia_srtp_use.PJMEDIA_SRTP_MANDATORY)
-            // DTLS does not require SIP to be over TLS (srtpSecureSignaling=0)
             mediaCfg.setSrtpSecureSignaling(0)
+            val srtpOpt = mediaCfg.getSrtpOpt()
+            val keyings = IntVector(intArrayOf(
+                pjmedia_srtp_keying_method.PJMEDIA_SRTP_KEYING_DTLS_SRTP,
+                pjmedia_srtp_keying_method.PJMEDIA_SRTP_KEYING_SDES,
+            ))
+            srtpOpt.setKeyings(keyings)
+            mediaCfg.setSrtpOpt(srtpOpt)
+            Log.i(TAG, "SRTP keyings set: DTLS_SRTP first, count=${mediaCfg.getSrtpOpt().getKeyings().size}")
+            mediaCfg.setRtcpMuxEnabled(true)
             setMediaConfig(mediaCfg)
 
             // ICE + TURN: configured in AccountNatConfig
@@ -369,9 +430,11 @@ class SipEngine(
         return SipCredentials(
             extension = obj.getString("sip_extension"),
             password = obj.getString("sip_password"),
-            wssUrl = obj.getString("wss_url"),
+            wssUrl = obj.optString("wss_url", ""),
             domain = obj.getString("sip_domain"),
             iceServers = iceServers,
+            tlsHost = obj.optString("sip_tls_host").takeIf { it.isNotEmpty() },
+            tlsPort = if (obj.has("sip_tls_port")) obj.getInt("sip_tls_port") else null,
         )
     }
 }

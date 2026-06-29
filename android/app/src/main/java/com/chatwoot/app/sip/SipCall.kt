@@ -39,10 +39,11 @@ class SipCall(
                     ((System.currentTimeMillis() - startTimestamp) / 1000).toInt()
                 } else 0
                 val statusCode = info.lastStatusCode
-                if (statusCode in 400..699) {
-                    engine.onCallFailed(callIdStr, info.lastReason)
-                } else {
-                    engine.onCallEnded(callIdStr, info.lastReason, durationSecs)
+                when {
+                    // 487 = Request Terminated (remote CANCEL before answer). Not a failure.
+                    statusCode == 487 -> engine.onCallCancelled(callIdStr)
+                    statusCode in 400..699 -> engine.onCallFailed(callIdStr, info.lastReason)
+                    else -> engine.onCallEnded(callIdStr, info.lastReason, durationSecs)
                 }
             }
             else -> {}
@@ -54,13 +55,17 @@ class SipCall(
             Log.e(TAG, "onCallMediaState: failed to get call info", e)
             return
         }
+        Log.i(TAG, "onCallMediaState: mediaCount=${info.media.size}")
         for (i in 0 until info.media.size) {
             val media = info.media[i]
+            Log.i(TAG, "  stream[$i]: type=${media.type} status=${media.status}")
             if (media.type == pjmedia_type.PJMEDIA_TYPE_AUDIO &&
                 media.status == pjsua_call_media_status.PJSUA_CALL_MEDIA_ACTIVE
             ) {
                 try {
-                    val audioMedia = getMedia(i.toLong()) as? AudioMedia ?: continue
+                    // SWIG wraps native pointers — Kotlin cast (as? AudioMedia) always returns null.
+                    // AudioMedia.typecastFromMedia() is the correct downcast via the SWIG binding.
+                    val audioMedia = AudioMedia.typecastFromMedia(getMedia(i.toLong()))
                     // Connect microphone -> call transmit
                     Endpoint.instance().audDevManager().captureDevMedia
                         .startTransmit(audioMedia)
@@ -68,9 +73,9 @@ class SipCall(
                     audioMedia.startTransmit(
                         Endpoint.instance().audDevManager().playbackDevMedia
                     )
-                    Log.i(TAG, "Audio media active on stream $i")
+                    Log.i(TAG, "  stream[$i]: audio routing connected")
                 } catch (e: Exception) {
-                    Log.e(TAG, "Failed to route audio on stream $i", e)
+                    Log.e(TAG, "  stream[$i]: failed to route audio", e)
                 }
             }
         }
