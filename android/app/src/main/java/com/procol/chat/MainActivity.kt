@@ -1,4 +1,4 @@
-package com.chatwoot.app
+package com.procol.chat
 
 import android.os.Build
 import android.os.Bundle

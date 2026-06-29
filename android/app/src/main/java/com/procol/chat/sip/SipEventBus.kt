@@ -1,4 +1,4 @@
-package com.chatwoot.app.sip
+package com.procol.chat.sip
 
 import com.facebook.react.bridge.WritableMap
 import java.util.concurrent.CopyOnWriteArrayList

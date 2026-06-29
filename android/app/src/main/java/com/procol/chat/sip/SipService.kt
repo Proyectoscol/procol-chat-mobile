@@ -1,4 +1,4 @@
-package com.chatwoot.app.sip
+package com.procol.chat.sip
 
 import android.app.*
 import android.content.Context
@@ -8,8 +8,8 @@ import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
-import com.chatwoot.app.MainActivity
-import com.chatwoot.app.R
+import com.procol.chat.MainActivity
+import com.procol.chat.R
 import com.facebook.react.bridge.Arguments
 
 private const val TAG = "SipService"

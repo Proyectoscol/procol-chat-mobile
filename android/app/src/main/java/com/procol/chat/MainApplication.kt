@@ -1,9 +1,9 @@
-package com.chatwoot.app
+package com.procol.chat
 
 import android.app.Application
 import android.content.res.Configuration
 
-import com.chatwoot.app.sip.SipPackage
+import com.procol.chat.sip.SipPackage
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactNativeHost

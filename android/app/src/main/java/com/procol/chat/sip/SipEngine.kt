@@ -1,4 +1,4 @@
-package com.chatwoot.app.sip
+package com.procol.chat.sip
 
 import android.content.Context
 import android.util.Log
