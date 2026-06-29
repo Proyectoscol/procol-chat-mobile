@@ -124,6 +124,9 @@ class SipService : Service(), SipEngine.Listener {
             return
         }
 
+        // Persist credentials so boot receiver and FCM service can restart SIP without the JS layer
+        SipCredentialsStore.save(applicationContext, credentialsJson)
+
         currentRegistrationState = "registering"
         emitState("registering")
 
@@ -137,6 +140,7 @@ class SipService : Service(), SipEngine.Listener {
         engine?.stop()
         engine = null
         currentRegistrationState = "idle"
+        SipCredentialsStore.clear(applicationContext)
         updatePersistentNotification("Desconectado")
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()

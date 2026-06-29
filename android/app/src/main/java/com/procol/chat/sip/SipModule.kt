@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Build
 import com.facebook.react.bridge.*
 import com.facebook.react.modules.core.DeviceEventManagerModule
+import com.google.firebase.messaging.FirebaseMessaging
 
 /**
  * React Native bridge for the SIP native module.
@@ -141,6 +142,24 @@ class SipModule(private val reactContext: ReactApplicationContext) :
             putString("activeCallId", SipService.currentActiveCallId)
         }
         promise.resolve(map)
+    }
+
+    @ReactMethod
+    fun getFcmToken(promise: Promise) {
+        // Return cached token immediately if available, then refresh in background
+        val cached = FcmTokenStore.read(reactContext)
+        if (cached != null) {
+            promise.resolve(cached)
+            return
+        }
+        FirebaseMessaging.getInstance().token
+            .addOnSuccessListener { token ->
+                FcmTokenStore.save(reactContext, token)
+                promise.resolve(token)
+            }
+            .addOnFailureListener { e ->
+                promise.reject("FCM_TOKEN_ERROR", e.message, e)
+            }
     }
 
     // Required by RCTEventEmitter conventions; not used here since we emit directly

@@ -69,6 +69,12 @@ export function sipSetMuted(muted: boolean): Promise<void> {
   return SipModule.setMuted(muted);
 }
 
+/** Get the FCM push token for this device (used to register with backend). */
+export function sipGetFcmToken(): Promise<string | null> {
+  if (Platform.OS !== 'android') return Promise.resolve(null);
+  return SipModule.getFcmToken();
+}
+
 /** Route audio to speaker (true) or earpiece (false). */
 export function sipSetSpeaker(enabled: boolean): Promise<void> {
   if (Platform.OS !== 'android') return Promise.resolve();

@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import { useAppSelector } from '@/hooks';
 import { selectLoggedIn } from '@/store/auth/authSelectors';
 import { apiService } from '@/services/APIService';
-import { sipGetState, sipRegister, sipUnregister } from './index';
+import { sipGetState, sipRegister, sipUnregister, sipGetFcmToken } from './index';
 
 export function useSipAutoRegister() {
   if (Platform.OS !== 'android') return;
@@ -41,6 +41,14 @@ export function useSipAutoRegister() {
 
         registeredRef.current = true;
         await sipRegister(creds as never);
+
+        // Register FCM token with backend so it can push incoming call notifications
+        const fcmToken = await sipGetFcmToken().catch(() => null);
+        if (fcmToken && !cancelled) {
+          apiService
+            .post('sip/fcm_token', { token: fcmToken, platform: 'android' })
+            .catch(() => {}); // best-effort — don't block SIP registration
+        }
       } catch (err) {
         // eslint-disable-next-line no-console
         console.warn('[SipAutoRegister] Failed to fetch/register:', err);

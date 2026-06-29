@@ -26,6 +26,8 @@
   <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
   <!-- Manage audio routing for calls -->
   <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+  <!-- Android 14+: required for foreground services that handle phone calls -->
+  <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL"/>
 
   <queries>
     <!-- Support checking for http(s) links via the Linking API -->
@@ -42,7 +44,26 @@
         android:name=".sip.SipService"
         android:exported="false"
         android:stopWithTask="false"
-        android:foregroundServiceType="microphone"/>
+        android:foregroundServiceType="microphone|phoneCall"/>
+
+    <!-- FCM: recibe pushes de llamada entrante cuando la app está cerrada -->
+    <service
+        android:name=".sip.SipFirebaseMessagingService"
+        android:exported="false">
+      <intent-filter>
+        <action android:name="com.google.firebase.MESSAGING_EVENT"/>
+      </intent-filter>
+    </service>
+
+    <!-- Boot receiver: reinicia SipService tras reinicio del dispositivo -->
+    <receiver
+        android:name=".sip.SipBootReceiver"
+        android:exported="false">
+      <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED"/>
+        <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
+      </intent-filter>
+    </receiver>
 
     <activity android:name=".MainActivity" android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|uiMode" android:launchMode="singleTask" android:windowSoftInputMode="adjustResize" android:theme="@style/Theme.App.SplashScreen" android:exported="true">
       <intent-filter>
