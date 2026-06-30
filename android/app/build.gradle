@@ -161,8 +161,7 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
 
     // Firebase - Cloud Messaging (FCM) para notificaciones de llamada en background
-    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
-    implementation("com.google.firebase:firebase-messaging-ktx")
+    implementation("com.google.firebase:firebase-messaging-ktx:24.1.0")
 
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";
