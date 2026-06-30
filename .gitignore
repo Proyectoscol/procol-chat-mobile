@@ -56,3 +56,16 @@ android/.kotlin/
 # Debug/investigation files - contain real IPs and call data
 logfromcall.txt
 fix-dtls-srtp-pjsip.md
+
+# Firebase service account (contiene claves privadas — NUNCA commitear)
+*service-account*.json
+*serviceAccount*.json
+firebase-adminsdk*.json
+
+# Release keystore (firma de producción)
+android/app/release.keystore
+*.release.keystore
+
+# APKs y bundles compilados
+*.apk
+*.aab
