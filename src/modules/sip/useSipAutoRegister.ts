@@ -1,9 +1,27 @@
 import { useEffect, useRef } from 'react';
-import { Platform } from 'react-native';
+import { Platform, PermissionsAndroid } from 'react-native';
 import { useAppSelector } from '@/hooks';
 import { selectLoggedIn } from '@/store/auth/authSelectors';
 import { apiService } from '@/services/APIService';
 import { sipGetState, sipRegister, sipUnregister, sipGetFcmToken } from './index';
+
+async function ensureMicrophonePermission(): Promise<boolean> {
+  if (Platform.OS !== 'android') return true;
+  try {
+    const granted = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+      {
+        title: 'Permiso de micrófono',
+        message: 'Procol necesita acceso al micrófono para las llamadas VoIP.',
+        buttonPositive: 'Permitir',
+        buttonNegative: 'Cancelar',
+      }
+    );
+    return granted === PermissionsAndroid.RESULTS.GRANTED;
+  } catch {
+    return false;
+  }
+}
 
 export function useSipAutoRegister() {
   if (Platform.OS !== 'android') return;
@@ -34,6 +52,9 @@ export function useSipAutoRegister() {
           registeredRef.current = true;
           return;
         }
+
+        const micGranted = await ensureMicrophonePermission();
+        if (!micGranted || cancelled) return;
 
         const response = await apiService.get<Record<string, unknown>>('sip/credential');
         if (cancelled) return;

@@ -44,7 +44,7 @@
         android:name=".sip.SipService"
         android:exported="false"
         android:stopWithTask="false"
-        android:foregroundServiceType="microphone|phoneCall"/>
+        android:foregroundServiceType="microphone"/>
 
     <!-- FCM: recibe pushes de llamada entrante cuando la app está cerrada -->
     <service
