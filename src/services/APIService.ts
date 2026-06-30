@@ -98,7 +98,8 @@ class APIService {
         if (error.response?.status === 401) {
           const store = getStore();
           store.dispatch({ type: 'auth/logout' });
-        } else {
+        } else if (error.response?.status !== 404) {
+          // 404 = endpoint no existe (ej. feature no desplegada aún) — no mostrar error al usuario
           showToast({ message: I18n.t('ERRORS.COMMON_ERROR') });
         }
         return Promise.reject(error);
